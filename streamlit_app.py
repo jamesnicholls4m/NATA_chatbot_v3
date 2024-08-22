@@ -1,56 +1,57 @@
 import streamlit as st
 from openai import OpenAI
+import pandas as pd
 
 # Show title and description.
-st.title("💬 Chatbot")
+st.title("💬 File-Integrated Chatbot")
 st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
+    "This chatbot leverages OpenAI's GPT-3.5 model and scans your uploaded CSV or Excel file to provide answers. "
+    "To get started, enter your OpenAI API key, upload your file, and ask a question!"
 )
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
+# Step 1: User inputs their OpenAI API key.
+openai_api_key = st.text_input("OpenAI API Key", type="password", help="Get your API key from https://platform.openai.com/account/api-keys")
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
 else:
-
     # Create an OpenAI client.
     client = OpenAI(api_key=openai_api_key)
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # Step 2: User uploads a CSV or Excel file.
+    uploaded_file = st.file_uploader("Upload your file", type=["csv", "xlsx"], help="Upload a CSV or Excel file")
+    if uploaded_file is not None:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        st.success("File uploaded successfully!")
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
+        # Step 3: User can ask a question.
+        user_question = st.text_input("Ask a question about the data")
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        if user_question:
+            # Display the user's question.
+            st.write(f"**Question:** {user_question}")
 
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
+            # Step 4: Scan the uploaded file for the answer.
+            # For simplicity, we'll just convert the entire DataFrame to a string.
+            # In a real application, you would implement a more sophisticated search.
+            data_str = df.to_string()
 
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            # Create a prompt for the OpenAI API.
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": f"Here's the data:\n{data_str}\n\nAnswer this question: {user_question}"}
+            ]
+
+            # Generate a response using the OpenAI API.
+            response = client.Completion.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                max_tokens=150
+            )
+
+            # Step 5: Provide the answer.
+            st.write("**Answer:**")
+            st.write(response.choices[0].message["content"])
