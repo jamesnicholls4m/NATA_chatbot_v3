@@ -1,5 +1,5 @@
 import streamlit as st
-from openai import OpenAI
+import openai
 import pandas as pd
 
 # Show title and description.
@@ -14,8 +14,8 @@ openai_api_key = st.text_input("OpenAI API Key", type="password", help="Get your
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
 else:
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+    # Set the OpenAI API key
+    openai.api_key = openai_api_key
 
     # Step 2: User uploads a CSV or Excel file.
     uploaded_file = st.file_uploader("Upload your file", type=["csv", "xlsx"], help="Upload a CSV or Excel file")
@@ -49,7 +49,7 @@ else:
                 ]
 
                 # Generate a response using the OpenAI API.
-                response = client.Completion.create(
+                response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
                     messages=messages,
                     max_tokens=150
@@ -58,6 +58,6 @@ else:
                 # Step 5: Provide the answer.
                 st.write("**Answer:**")
                 st.write(response.choices[0].message["content"])
-        
+
         except Exception as e:
             st.error(f"An error occurred: {e}")
